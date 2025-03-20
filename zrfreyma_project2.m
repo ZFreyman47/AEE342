@@ -15,12 +15,14 @@ x1 = linspace(0, 1, n/2);
 y_upper = 0.594689181.*(0.298222773 .* sqrt(x1) - 0.127125232.* x1 - 0.357907906 .* x1.^2 + 0.291984971 .* x1.^3 - 0.105174606 .* x1.^4);
 y_lower = -0.594689181.*(0.298222773 .* sqrt(x1) - 0.127125232.* x1 - 0.357907906 .* x1.^2 + 0.291984971 .* x1.^3 - 0.105174606 .* x1.^4);
 
-% Setting up panels
-p = 10; % Arbitrary number of panels
-alpha = 0; %Adding the option for an angle of attack
+% Primary Simulation Settings
+p = 100; % Chosen number of panels
+alpha = 0; % Adding the option for an angle of attack in degrees
+V_inf = 1; % Freestream velocity in m/s
+thickness = 0.12; % NACA 4 Digit Airfoil Thickness
 
 x = 0:2/p:1; % This array will be used again later for panel location hence the setup using panel number
-f = 0.594689181.*(0.298222773 .* sqrt(x) - 0.127125232.* x - 0.357907906 .* x.^2 + 0.291984971 .* x.^3 - 0.105174606 .* x.^4);
+f = 5 * thickness * (0.2969 .* sqrt(x) - 0.126 .* x - 0.3516 .* x.^2 + 0.2843 .* x.^3 - 0.1015 .* x.^4);
 Y = zeros(p, 1);
 X = linspace(0, 1, p/2);
 
@@ -34,6 +36,7 @@ for i = 1:p + 1
     end
 end
 
+% Plotting Airfoil with Panel Endpoints
 figure(1)
 hold on
 plot(x1, y_upper)
@@ -65,6 +68,7 @@ for i = 1:p
     beta(i) = phi(i) + pi/2 - alpha;
 end
 
+% Plotting Airfoil with Panel Control Points
 figure(2)
 hold on
 plot(x1, y_upper)
@@ -77,7 +81,7 @@ hold off
 title('NACA 0012 Airfoil')
 legend('Airfoil Surface','Panel Control Points')
 
-%% Creating Influence Coefficient Matrices (I and J)
+%% Creating Influence Coefficient Matrix (I)
 % Setting up coefficents and Matrices
 I = zeros(p);
 J = zeros(p);
@@ -94,15 +98,65 @@ for i = 1:p
         C(i,j) = sin(phi(i) - phi(j));
         D(i,j) = (Yc(i) - Y(j)) * cos(phi(i)) - (Xc(i) - X(j)) * sin(phi(i));
         E(i,j) = (Xc(i) - X(j)) * sin(phi(j)) - (Yc(i) - Y(j)) * cos(phi(j));
-        %LengthS(i,j) = ;
         if i == j
-            I(i,j) = 0.5;
+            I(i,j) = ((1)/(2*pi))*pi;
         else
-            I(i,j) = %Something
+            I(i,j) = ((1)/(2*pi))*((C(i,j)/2)*log((Length(j)^2 + 2 * A(i,j) * Length(j) + B(i,j))/(B(i,j))) + ((D(i,j) - A(i,j) * C(i,j))/(E(i,j))) * (atan((Length(j) + A(i,j))/(E(i,j))) - atan(A(i,j)/E(i,j))));
         end
     end
 end
 
+%% Solving for Source Strengths
+n_vector = -1 * V_inf .* cos(beta);
+t_vector = V_inf .* sin(beta);
 
+lambda = mldivide(n_vector, I);
 
-%imagesc(I)
+%% Creating Influence Coefficient Matrix (J)
+
+for i = 1:p
+    for j = 1:p
+        if i == j
+            J(i,j) = 0;
+        else
+            J(i,j) = (D(i,j) - A(i,j) * C(i,j))/(2 * E(i,j)) * log((Length(j)^2 + 2 * A(i,j) * Length(j) + B(i,j)) / (B(i,j))) - C(i,j) * (atan((Length(j) + A(i,j)) / (E(i,j))) - atan((A(i,j))/(E(i,j))));
+        end
+
+    end
+end
+
+V_tan = J * lambda(:) + t_vector;
+
+Cp = 1 - (V_tan/V_inf).^2;
+
+mass_flux = 0;
+for i = 1:p
+    mass_flux = mass_flux + lambda(i) * Length(j); 
+end
+
+disp(mass_flux)
+%% Plotting
+
+% Sanity Checks for Matrices
+figure(3)
+imagesc(I)
+title('Sanity Check for I Matrix')
+figure(4)
+imagesc(J)
+title('Sanity Check for J Matrix')
+
+% Chord vs. Source Strength
+figure(5)
+plot(Xc, lambda)
+title('Chord vs. Source Strength (Lambda)')
+xlabel('X/c')
+ylabel('Lambda')
+
+% Chord vs. Coefficient of Pressure
+figure(6)
+plot(Xc, Cp)
+set(gca, "YDir", "reverse")
+title('Chord vs. Coefficient of Pressure Cp')
+xlabel('X/c')
+ylabel('Coefficient of Pressure')
+
