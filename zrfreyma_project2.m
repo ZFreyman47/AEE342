@@ -10,7 +10,7 @@ clear
 % Equations sourced from https://turbmodels.larc.nasa.gov/naca0012_val.html
 
 % Analytical Solution of Airfoil Shape (Independent of panel count)
-n = 250;
+n = 500;
 x1 = linspace(0, 1, n/2);
 y_upper = 0.594689181.*(0.298222773 .* sqrt(x1) - 0.127125232.* x1 - 0.357907906 .* x1.^2 + 0.291984971 .* x1.^3 - 0.105174606 .* x1.^4);
 y_lower = -0.594689181.*(0.298222773 .* sqrt(x1) - 0.127125232.* x1 - 0.357907906 .* x1.^2 + 0.291984971 .* x1.^3 - 0.105174606 .* x1.^4);
@@ -99,19 +99,19 @@ for i = 1:p
         D(i,j) = (Yc(i) - Y(j)) * cos(phi(i)) - (Xc(i) - X(j)) * sin(phi(i));
         E(i,j) = (Xc(i) - X(j)) * sin(phi(j)) - (Yc(i) - Y(j)) * cos(phi(j));
         if i == j
-            I(i,j) = ((1)/(2*pi))*pi;
+            I(i,j) = pi;
         else
-            I(i,j) = ((1)/(2*pi))*((C(i,j)/2)*log((Length(j)^2 + 2 * A(i,j) * Length(j) + B(i,j))/(B(i,j))) + ((D(i,j) - A(i,j) * C(i,j))/(E(i,j))) * (atan((Length(j) + A(i,j))/(E(i,j))) - atan(A(i,j)/E(i,j))));
+            I(i,j) = ((C(i,j)/2)*log((Length(j)^2 + 2 * A(i,j) * Length(j) + B(i,j))/(B(i,j))) + ((D(i,j) - A(i,j) * C(i,j))/(E(i,j))) * (atan((Length(j) + A(i,j))/(E(i,j))) - atan(A(i,j)/E(i,j))));
         end
     end
 end
-
+%((1)/(2*pi))*   ((1)/(2*pi))*
 %% Solving for Source Strengths
-n_vector = -1 * V_inf .* cos(beta);
-t_vector = V_inf .* sin(beta);
+n_velocity = -1 * V_inf .* cos(beta);
+t_velocity = V_inf .* sin(beta);
 
-lambda = mldivide(n_vector, I);
-
+lambda = mldivide(n_velocity, I);
+% ((1)/(2*pi))*
 %% Creating Influence Coefficient Matrix (J)
 
 for i = 1:p
@@ -125,9 +125,9 @@ for i = 1:p
     end
 end
 
-V_tan = J * lambda(:) + t_vector;
+V_tan = J * lambda(:) + t_velocity;
 
-Cp = 1 - (V_tan/V_inf).^2;
+Cp = 1 - ((V_tan/V_inf).^2);
 
 mass_flux = 0;
 for i = 1:p
@@ -151,6 +151,8 @@ plot(Xc, lambda)
 title('Chord vs. Source Strength (Lambda)')
 xlabel('X/c')
 ylabel('Lambda')
+%xlim([-0.1, 1.1])
+ylim([-0.3, 1.4])
 
 % Chord vs. Coefficient of Pressure
 figure(6)
@@ -160,3 +162,24 @@ title('Chord vs. Coefficient of Pressure Cp')
 xlabel('X/c')
 ylabel('Coefficient of Pressure')
 
+% Streamline Plot
+
+[x_grid, y_grid] = meshgrid(-0.1:0.01:1.1, -0.4:0.001:0.4);
+
+
+u = V_inf * cos(alpha);
+v = V_inf * sin(alpha);
+
+for i = 1:p
+    u = u + ((lambda(i))./(2 * pi)) .* ((x_grid - Xc(i))./((x_grid - Xc(i)).^2 + (y_grid - Yc(i)).^2)) .* Length(i);
+    v = v + ((lambda(i))./(2 * pi)) .* ((y_grid - Yc(i))./((x_grid - Xc(i)).^2 + (y_grid - Yc(i)).^2)) .* Length(i);
+end
+
+figure(7)
+hold on
+streamslice(x_grid, y_grid, u, v, 5)
+plot(x1, y_upper, 'k', 'LineWidth', 2)
+plot(x1, y_lower, 'k', 'LineWidth', 2)
+xlim([-0.1, 1.1])
+ylim([-0.4, 0.4])
+hold off
