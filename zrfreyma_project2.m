@@ -1,7 +1,7 @@
 %% Zach Freyman - AEE342 Project 2
-% Source Panel Method for NACA 0012 Airfoil
+% Source Panel Method for NACA 4 Digit Airfoils
 
-%% Initialization of key symbols and variables
+%% Initialization and Refresh
 close all;
 clear
 
@@ -22,7 +22,7 @@ Y = zeros(p, 1);
 X = linspace(0, 1, p/2);
 
 % Analytical Solution of Airfoil Shape (Independent of panel count)
-n = 500;
+n = 500; % Number used as sufficent to generate accurate and visually appealing airfoil shape
 x1 = linspace(0, 1, n/2);
 y_upper = 5 * thickness * (0.2969 .* sqrt(x1) - 0.126 .* x1 - 0.3516 .* x1.^2 + 0.2843 .* x1.^3 - 0.1015 .* x1.^4);
 y_lower = -5 * thickness * (0.2969 .* sqrt(x1) - 0.126 .* x1 - 0.3516 .* x1.^2 + 0.2843 .* x1.^3 - 0.1015 .* x1.^4);
@@ -47,7 +47,7 @@ plot(X, Y, 'bs', 'MarkerSize', 4)
 grid on
 axis equal
 hold off
-title('NACA 0012 Airfoil')
+title('NACA 0012 Airfoil and Panel Endpoints')
 legend('Airfoil Surface','Panel Endpoints')
 
 %% Setting up control points and establishing panel lengths
@@ -79,7 +79,7 @@ plot(Xc, Yc, 'bs', 'MarkerSize', 4)
 grid on
 axis equal
 hold off
-title('NACA 0012 Airfoil')
+title('NACA 0012 Airfoil and Panel Control Points')
 legend('Airfoil Surface','Panel Control Points')
 
 %% Creating Influence Coefficient Matrix (I)
@@ -140,7 +140,7 @@ end
 
 disp(mass_flux)
 
-%% Plotting
+%% General Plotting
 
 % Sanity Checks for Matrices
 figure(3)
@@ -152,20 +152,40 @@ title('Sanity Check for J Matrix')
 
 % Chord vs. Source Strength
 figure(5)
-plot(Xc, lambda)
-title('Chord vs. Source Strength (Lambda)')
+subplot(2,1,1)
+plot(Xc(1:p/2), lambda(1:p/2))
+title('Chord vs. Source Strength (Upper Surface)')
 xlabel('X/c')
 ylabel('Lambda')
-%xlim([-0.1, 1.1])
-%ylim([-0.3, 1.4])
+subplot(2,1,2)
+plot(Xc(p/2 +1:p), lambda(p/2 +1:p))
+title('Chord vs. Source Strength (Lower Surface)')
+xlabel('X/c')
+ylabel('Lambda')
+
 
 % Chord vs. Coefficient of Pressure
+Cpdata_x_0 = importdata('0_x.txt');
+Cpdata_c_0 = importdata('0_c.txt');
+Cpdata_x_10 = importdata('10_x.txt');
+Cpdata_c_10 = importdata('10_c.txt');
+
+
 figure(6)
+hold on
 plot(Xc, Cp)
+if alpha == 0
+    plot(Cpdata_x_0, Cpdata_c_0, 'o')
+elseif alpha == 10*pi/180
+    plot(Cpdata_x_10, Cpdata_c_10, 'o')
+else
+end
+
 set(gca, "YDir", "reverse")
-title('Chord vs. Coefficient of Pressure')
+title("Chord vs. Coefficient of Pressure at angle of attack of " + alpha*(360/(2*pi)) + " degrees ")
 xlabel('X/c')
 ylabel('Coefficient of Pressure')
+hold off
 
 %% Streamline Plot
 
@@ -185,7 +205,16 @@ hold on
 streamslice(x_grid, y_grid, u, v, 7)
 plot(x1, y_upper, 'k', 'LineWidth', 2)
 plot(x1, y_lower, 'k', 'LineWidth', 2)
+title("Flow Streamlines over NACA 00" + thickness*100 + " at angle of attack of " + alpha*(360/(2*pi)) + " degrees ")
 xlim([-0.1, 1.1])
 ylim([-0.4, 0.4])
 hold off
 
+
+massimbalance_plot = importdata('mass_imbalance_20.50.100.200.txt');
+panel_count = [20, 50, 100, 200];
+figure(8)
+plot(panel_count, massimbalance_plot)
+title('Mass Imbalance Versus Panel Count')
+xlabel('Panel Count')
+ylabel('Simulation Mass Imbalance')
