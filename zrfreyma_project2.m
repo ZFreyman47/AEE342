@@ -7,24 +7,25 @@ clear
 
 
 %% Generating Airfoil Plot
-% Equations sourced from https://turbmodels.larc.nasa.gov/naca0012_val.html
-
-% Analytical Solution of Airfoil Shape (Independent of panel count)
-n = 500;
-x1 = linspace(0, 1, n/2);
-y_upper = 0.594689181.*(0.298222773 .* sqrt(x1) - 0.127125232.* x1 - 0.357907906 .* x1.^2 + 0.291984971 .* x1.^3 - 0.105174606 .* x1.^4);
-y_lower = -0.594689181.*(0.298222773 .* sqrt(x1) - 0.127125232.* x1 - 0.357907906 .* x1.^2 + 0.291984971 .* x1.^3 - 0.105174606 .* x1.^4);
 
 % Primary Simulation Settings
-p = 100; % Chosen number of panels
-alpha = 0; % Adding the option for an angle of attack in degrees
-V_inf = 1; % Freestream velocity in m/s
-thickness = 0.12; % NACA 4 Digit Airfoil Thickness
+default = {'100', '0', '1', '12'}; % 
+userinput = inputdlg({'Panel Count', 'Angle of Attack', 'Freestream Velocity', 'NACA Thickness (Last two digits)'}, 'Program Inputs', 1, default);
+p = str2double(userinput{1});
+alpha = str2double(userinput{2})*(2*pi)/360;
+V_inf = str2double(userinput{3});
+thickness = (str2double(userinput{4}))/100;
 
 x = 0:2/p:1; % This array will be used again later for panel location hence the setup using panel number
 f = 5 * thickness * (0.2969 .* sqrt(x) - 0.126 .* x - 0.3516 .* x.^2 + 0.2843 .* x.^3 - 0.1015 .* x.^4);
 Y = zeros(p, 1);
 X = linspace(0, 1, p/2);
+
+% Analytical Solution of Airfoil Shape (Independent of panel count)
+n = 500;
+x1 = linspace(0, 1, n/2);
+y_upper = 5 * thickness * (0.2969 .* sqrt(x1) - 0.126 .* x1 - 0.3516 .* x1.^2 + 0.2843 .* x1.^3 - 0.1015 .* x1.^4);
+y_lower = -5 * thickness * (0.2969 .* sqrt(x1) - 0.126 .* x1 - 0.3516 .* x1.^2 + 0.2843 .* x1.^3 - 0.1015 .* x1.^4);
 
 for i = 1:p + 1
     if i<= 0.5 * p + 1
@@ -99,19 +100,19 @@ for i = 1:p
         D(i,j) = (Yc(i) - Y(j)) * cos(phi(i)) - (Xc(i) - X(j)) * sin(phi(i));
         E(i,j) = (Xc(i) - X(j)) * sin(phi(j)) - (Yc(i) - Y(j)) * cos(phi(j));
         if i == j
-            I(i,j) = pi;
+            I(i,j) = ((1)/(2*pi))*pi;
         else
-            I(i,j) = ((C(i,j)/2)*log((Length(j)^2 + 2 * A(i,j) * Length(j) + B(i,j))/(B(i,j))) + ((D(i,j) - A(i,j) * C(i,j))/(E(i,j))) * (atan((Length(j) + A(i,j))/(E(i,j))) - atan(A(i,j)/E(i,j))));
+            I(i,j) = ((1)/(2*pi))*((C(i,j)/2)*log((Length(j)^2 + 2 * A(i,j) * Length(j) + B(i,j))/(B(i,j))) + ((D(i,j) - A(i,j) * C(i,j))/(E(i,j))) * (atan((Length(j) + A(i,j))/(E(i,j))) - atan(A(i,j)/E(i,j))));
         end
     end
 end
-%((1)/(2*pi))*   ((1)/(2*pi))*
-%% Solving for Source Strengths
-n_velocity = -1 * V_inf .* cos(beta);
-t_velocity = V_inf .* sin(beta);
 
-lambda = mldivide(n_velocity, I);
-% ((1)/(2*pi))*
+%% Solving for Source Strengths
+n_velocity = -1 * V_inf * cos(beta);
+t_velocity = V_inf * sin(beta);
+
+lambda = mldivide(I, n_velocity);
+
 %% Creating Influence Coefficient Matrix (J)
 
 for i = 1:p
@@ -125,16 +126,20 @@ for i = 1:p
     end
 end
 
-V_tan = J * lambda(:) + t_velocity;
+V_tan = J * lambda(:) * (1/(2*pi)) + t_velocity;
 
-Cp = 1 - ((V_tan/V_inf).^2);
+Cp = zeros(1,p);
+for i = 1:p
+    Cp(i) = 1 - ((V_tan(i) / V_inf).^2);
+end
 
 mass_flux = 0;
 for i = 1:p
-    mass_flux = mass_flux + lambda(i) * Length(j); 
+    mass_flux = mass_flux + lambda(i) .* Length(i); 
 end
 
 disp(mass_flux)
+
 %% Plotting
 
 % Sanity Checks for Matrices
@@ -152,17 +157,17 @@ title('Chord vs. Source Strength (Lambda)')
 xlabel('X/c')
 ylabel('Lambda')
 %xlim([-0.1, 1.1])
-ylim([-0.3, 1.4])
+%ylim([-0.3, 1.4])
 
 % Chord vs. Coefficient of Pressure
 figure(6)
 plot(Xc, Cp)
 set(gca, "YDir", "reverse")
-title('Chord vs. Coefficient of Pressure Cp')
+title('Chord vs. Coefficient of Pressure')
 xlabel('X/c')
 ylabel('Coefficient of Pressure')
 
-% Streamline Plot
+%% Streamline Plot
 
 [x_grid, y_grid] = meshgrid(-0.1:0.01:1.1, -0.4:0.001:0.4);
 
@@ -177,9 +182,10 @@ end
 
 figure(7)
 hold on
-streamslice(x_grid, y_grid, u, v, 5)
+streamslice(x_grid, y_grid, u, v, 7)
 plot(x1, y_upper, 'k', 'LineWidth', 2)
 plot(x1, y_lower, 'k', 'LineWidth', 2)
 xlim([-0.1, 1.1])
 ylim([-0.4, 0.4])
 hold off
+
